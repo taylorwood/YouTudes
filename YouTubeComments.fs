@@ -16,7 +16,7 @@ module YouTubeComments =
             else Some value
         | _ -> None
 
-    let videoIdRegex = Regex(@"/watch\?v=(?<Id>\w+)", RegexOptions.Compiled)
+    let videoIdRegex = Regex(@"/watch\?v=(?<Id>[^&]+)", RegexOptions.Compiled)
     let getVideoId = getRegexGroupValue videoIdRegex "Id"
     let sessionTokenRegex = Regex("'XSRF_TOKEN':\\s+\"(?<Token>.+?)\"", RegexOptions.Compiled)
     let getSessionToken = getRegexGroupValue sessionTokenRegex "Token"
