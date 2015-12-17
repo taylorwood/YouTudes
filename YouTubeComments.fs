@@ -29,24 +29,28 @@ module YouTubeComments =
         // perform search
         printfn "Querying search results for %s..." query
         let searchUrl = sprintf "%s/results?search_query=%s" host query
-        let searchHtml = HtmlDocument.Load searchUrl
+        let cookies = System.Net.CookieContainer() // cookies required for comment JSON requests
+        let searchHtml = Http.RequestString(searchUrl, cookieContainer = cookies)
+        // parse session token from HTML, required for comment JSON requests
+        let sessionToken =
+            match getSessionToken searchHtml with
+            | Some t -> t
+            | None -> failwith "Failed to parse session token from HTML"
 
         // get links to videos from search results
-        let videoContainers = searchHtml.Descendants (fun n -> n.HasClass("yt-lockup-title"))
+        let searchDoc = HtmlDocument.Parse searchHtml
+        let videoContainers = searchDoc.Descendants (fun n -> n.HasClass("yt-lockup-title"))
         let videoUrls =
             videoContainers
             |> Seq.collect (fun n -> n.Elements("a"))
             |> Seq.choose (fun n -> n.TryGetAttribute("href"))
             |> Seq.map (fun attr -> host + attr.Value())
+            |> Seq.where (fun url -> url.Contains("/watch?"))
             |> Seq.distinct
 
-        let cookies = System.Net.CookieContainer() // required for comment JSON requests
-
-        let getCommentUrl videoId = sprintf "%s/watch_fragments_ajax?v=%s&tr=time&distiller=1&frags=comments&spf=load" host videoId
-
         // requests comments JSON
-        let getCommentJson token videoUrl jsonUrl =
-            let body = FormValues [("session_token", token); ("client_url", videoUrl)]
+        let getCommentJson videoUrl jsonUrl =
+            let body = FormValues [("session_token", sessionToken); ("client_url", videoUrl)]
             let headers = [("Referer", videoUrl)
                            ("Content-Type", "application/x-www-form-urlencoded")
                            ("DNT", "1")
@@ -54,19 +58,17 @@ module YouTubeComments =
             printfn "Requesting comments for %s..." jsonUrl
             Http.RequestString(jsonUrl, httpMethod = "POST", body = body, headers = headers, cookieContainer = cookies)
         
+        let getCommentUrl videoId = sprintf "%s/watch_fragments_ajax?v=%s&tr=time&distiller=1&frags=comments&spf=load" host videoId
+
         let getVideoCommentJson videoUrl =
-            printfn "Requesting video page for %s..." videoUrl
-            let videoHtml = Http.RequestString(videoUrl, cookieContainer = cookies)
-            maybe {
-                let! token = getSessionToken videoHtml
-                let! videoId = getVideoId videoUrl
-                return getCommentUrl videoId |> getCommentJson token videoUrl
-            }
+            match getVideoId videoUrl with
+            | Some id -> getCommentUrl id |> getCommentJson videoUrl
+            | None -> failwithf "Failed to parse video ID from video URL %s" videoUrl
 
         // request and parse the JSON comments
         let commentBodies =
             videoUrls
-            |> Seq.choose getVideoCommentJson
+            |> Seq.map getVideoCommentJson
             |> Seq.map JsonValue.Parse
             |> Seq.map
                 (fun j ->
