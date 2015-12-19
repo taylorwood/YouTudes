@@ -39,12 +39,9 @@ module YouTubeComments =
 
         // get links to videos from search results
         let searchDoc = HtmlDocument.Parse searchHtml
-        let videoContainers = searchDoc.Descendants (fun n -> n.HasClass("yt-lockup-title"))
         let videoUrls =
-            videoContainers
-            |> Seq.collect (fun n -> n.Elements("a"))
-            |> Seq.choose (fun n -> n.TryGetAttribute("href"))
-            |> Seq.map (fun attr -> host + attr.Value())
+            searchDoc.Select("//*[@class=yt-lockup-title]/a[@href]")
+            |> Seq.map (fun a -> host + a.AttributeValue("href"))
             |> Seq.where (fun url -> url.Contains("/watch?"))
             |> Seq.distinct
 
@@ -58,9 +55,8 @@ module YouTubeComments =
             printfn "Requesting comments for %s..." jsonUrl
             Http.RequestString(jsonUrl, httpMethod = "POST", body = body, headers = headers, cookieContainer = cookies)
         
-        let getCommentUrl videoId = sprintf "%s/watch_fragments_ajax?v=%s&tr=time&distiller=1&frags=comments&spf=load" host videoId
-
         let getVideoCommentJson videoUrl =
+            let getCommentUrl videoId = sprintf "%s/watch_fragments_ajax?v=%s&tr=time&distiller=1&frags=comments&spf=load" host videoId
             match getVideoId videoUrl with
             | Some id -> getCommentUrl id |> getCommentJson videoUrl
             | None -> failwithf "Failed to parse video ID from video URL %s" videoUrl
@@ -82,7 +78,7 @@ module YouTubeComments =
         // parses the embedded HTML from a JSON comment result, returning the comment text
         let getCommentText (body: JsonValue) =
             let commentHtml = HtmlDocument.Parse(body.AsString())
-            commentHtml.Descendants (fun n -> n.HasClass "comment-text-content")
+            commentHtml.Select("//*[@class=comment-text-content]")
             |> Seq.map HtmlNodeExtensions.InnerText
 
         commentBodies |> Seq.map getCommentText |> Seq.collect id
