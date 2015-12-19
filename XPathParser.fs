@@ -10,12 +10,12 @@ module XPathParser =
         | Child
         | DescendantOrSelf
     and NodeTest = string
-    and Operand =
+    and Operator =
         | Equals
         | NotEquals
     and Predicate = {
         Attribute: string
-        Filter: (Operand * string) option
+        Filter: (Operator * string) option
     }
 
     type XPathParser = Parser<XPathAxis, unit>
