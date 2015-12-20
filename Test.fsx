@@ -1,10 +1,7 @@
 ﻿#r "./packages/FParsec.1.0.2/lib/net40-client/FParsecCS.dll"
 #r "./packages/FParsec.1.0.2/lib/net40-client/FParsec.dll"
-#r "./packages/FSharp.Data.2.2.5/lib/net40/FSharp.Data.dll"
 #load "XPathParser.fs"
-#load "HtmlXPathExtensions.fs"
 
-open FSharp.Data
 open FParsec
 open YouTudes
 open YouTudes.XPathParser
