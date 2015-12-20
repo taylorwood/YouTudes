@@ -34,15 +34,24 @@
     <Reference Include="FSharp.Data">
       <HintPath>packages\FSharp.Data.2.2.5\lib\net40\FSharp.Data.dll</HintPath>
     </Reference>
+    <Reference Include="FParsec">
+      <HintPath>packages\FParsec.1.0.2\lib\net40-client\FParsec.dll</HintPath>
+    </Reference>
+    <Reference Include="FParsecCS">
+      <HintPath>packages\FParsec.1.0.2\lib\net40-client\FParsecCS.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Utility.fs" />
+    <Compile Include="XPathParser.fs" />
+    <Compile Include="HtmlXPathExtensions.fs" />
     <Compile Include="YouTubeComments.fs" />
     <Compile Include="AssemblyInfo.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.1\Framework\v4.0\Microsoft.FSharp.Targets" />
   <ItemGroup>
     <Compile Include="Program.fs" />
+    <None Include="Test.fsx" />
     <None Include="packages.config" />
   </ItemGroup>
 </Project>
