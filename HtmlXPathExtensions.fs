@@ -26,9 +26,7 @@ module HtmlNodeXPath =
             | None -> true // attr found, no comparison
         | None -> false // attr not found
 
-    let isMatch name preds n = preds |> Seq.forall (satisfiesPredicate n)
-
-    let find part (n: HtmlNode) =
+    let evaluate' part (n: HtmlNode) =
         let axis, name, preds = part
         let searchNodes =
             match axis with
@@ -37,14 +35,15 @@ module HtmlNodeXPath =
                 |> Seq.ofList
             | DescendantOrSelf ->
                 if name <> "*" then n.DescendantsAndSelf(name) else n.DescendantsAndSelf()
-        searchNodes |> Seq.where (isMatch name preds)
+        let isMatch n = preds |> List.forall (satisfiesPredicate n)
+        searchNodes |> Seq.where isMatch
 
     let evaluate xPath node =
         let rec loop parts nodes =
             match parts with
             | [] -> nodes
             | p::ps ->
-                let ns = nodes |> Seq.map (find p) |> Seq.collect id |> List.ofSeq
+                let ns = nodes |> Seq.map (evaluate' p) |> Seq.collect id |> List.ofSeq
                 loop ps ns
         loop xPath [node]
 

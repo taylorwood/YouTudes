@@ -48,10 +48,8 @@ module YouTubeComments =
         // requests comments JSON
         let getCommentJson videoUrl jsonUrl =
             let body = FormValues [("session_token", sessionToken); ("client_url", videoUrl)]
-            let headers = [("Referer", videoUrl)
-                           ("Content-Type", "application/x-www-form-urlencoded")
-                           ("DNT", "1")
-                           ("Origin", host)]
+            let headers = [("Referer", videoUrl); ("Origin", host)
+                           ("Content-Type", "application/x-www-form-urlencoded"); ("DNT", "1")]
             printfn "Requesting comments for %s..." jsonUrl
             Http.RequestString(jsonUrl, httpMethod = "POST", body = body, headers = headers, cookieContainer = cookies)
         
@@ -64,8 +62,7 @@ module YouTubeComments =
         // request and parse the JSON comments
         let commentBodies =
             videoUrls
-            |> Seq.map getVideoCommentJson
-            |> Seq.map JsonValue.Parse
+            |> Seq.map (getVideoCommentJson >> JsonValue.Parse)
             |> Seq.map
                 (fun j ->
                     maybe {

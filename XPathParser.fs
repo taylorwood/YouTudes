@@ -5,8 +5,8 @@ open FParsec
 
 module XPathParser =
 
-    type XPathPart = XPathAxis * NodeTest * Predicate list
-    and XPathAxis =
+    type XPathPart = Axis * NodeTest * Predicate list
+    and Axis =
         | Child
         | DescendantOrSelf
     and NodeTest = string
@@ -18,23 +18,19 @@ module XPathParser =
         Filter: (Operator * string) option
     }
 
-    type XPathParser = Parser<XPathAxis, unit>
-
-    let separator : XPathParser = stringReturn "/" Child
+    let separator : Parser<Axis, unit> = stringReturn "/" Child
     let descOrSelf = stringReturn "//" DescendantOrSelf
-    let xPathAxis = choice [descOrSelf; separator; preturn Child]
+    let axis = choice [descOrSelf; separator; preturn Child]
 
     let tagName = many1Satisfy (fun c -> isAsciiLetter c || isDigit c)
     let nodeName = choice [tagName; pstring "*"]
 
+    let equal = stringReturn "=" Equals
+    let unequal = stringReturn "!=" NotEquals
+    let operator = spaces >>. choice [equal; unequal] .>> spaces
     let predicateName = many1Satisfy (fun c -> isAsciiLetter c || isDigit c || c = '-')
-
-    let eqOp = stringReturn "=" Equals
-    let uneqOp = stringReturn "!=" NotEquals
-    let operand = spaces >>. choice [eqOp; uneqOp] .>> spaces
-    let quoted = between (pstring "'") (pstring "'") predicateName
-    let comparison = operand .>>. choice [quoted; predicateName]
-
+    let quoted = between (pstring "'") (pstring "'")
+    let comparison = operator .>>. choice [quoted predicateName; predicateName]
     let predicate = between (pstring "[@") (pstring "]") (predicateName .>>. opt comparison)
 
     let getXPathPart axis name predicates =
@@ -44,7 +40,7 @@ module XPathParser =
 
     let xPathPart =
         let predicates = many predicate
-        pipe3 xPathAxis nodeName predicates getXPathPart
+        pipe3 axis nodeName predicates getXPathPart
 
     let xPathParts = (many1 xPathPart) .>> eof
 
