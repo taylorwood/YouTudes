@@ -17,3 +17,4 @@ let test p str =
 test xPathParts "A/B/C/*"
 test xPathParts "//div[@class='hide'][@disabled]//a[@href]"
 test xPathParts "//footer[@class=some-class]//h2"
+test xPathParts "div/ul/*[💩]"
