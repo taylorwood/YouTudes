@@ -63,14 +63,13 @@ module YouTubeComments =
         let commentBodies =
             videoUrls
             |> Seq.map (getVideoCommentJson >> JsonValue.Parse)
-            |> Seq.map
+            |> Seq.choose
                 (fun j ->
                     maybe {
                         let! body = j.TryGetProperty("body")
                         let! html = body.TryGetProperty("watch-discussion")
                         return html
                     })
-            |> Seq.choose id
         
         // parses the embedded HTML from a JSON comment result, returning the comment text
         let getCommentText (body: JsonValue) =
