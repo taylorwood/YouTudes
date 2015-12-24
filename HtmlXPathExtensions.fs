@@ -7,15 +7,13 @@ open XPathParser
 
 module HtmlNodeXPath =
 
-    let equals a b = String.Equals(a, b, StringComparison.OrdinalIgnoreCase)
-
     let compareValues (n: HtmlNode) attr a b =
-        if equals attr "class" then n.HasClass(b)
-        else equals a b
+        let (=~) a b = String.Equals(a, b, StringComparison.OrdinalIgnoreCase)
+        if attr =~ "class" then n.HasClass(b)
+        else a =~ b
 
     let satisfiesPredicate (n: HtmlNode) pred =
-        let attr = n.TryGetAttribute(pred.Attribute)
-        match attr with
+        match n.TryGetAttribute(pred.Attribute) with
         | Some a ->
             match pred.Filter with
             | Some (op, comp) -> // perform comparison
@@ -32,20 +30,15 @@ module HtmlNodeXPath =
             match axis with
             | Child ->
                 if name <> "*" then n.Elements(name) else n.Elements()
-                |> Seq.ofList
             | DescendantOrSelf ->
                 if name <> "*" then n.DescendantsAndSelf(name) else n.DescendantsAndSelf()
+                |> List.ofSeq
         let isMatch n = preds |> List.forall (satisfiesPredicate n)
-        searchNodes |> Seq.where isMatch
+        searchNodes |> List.where isMatch
 
     let evaluate xPath node =
-        let rec loop parts nodes =
-            match parts with
-            | [] -> nodes
-            | p::ps ->
-                let ns = nodes |> Seq.map (evaluate' p) |> Seq.collect id |> List.ofSeq
-                loop ps ns
-        loop xPath [node]
+        let folder nodes part = nodes |> List.collect (evaluate' part)
+        xPath |> Seq.fold folder [node]
 
 [<Extension>]
 type HtmlXPathExtensions =
@@ -62,7 +55,7 @@ type HtmlXPathExtensions =
         let result = XPathParser.parse xPath
         match result with
         | Choice1Of2 parts ->
-            let elems = doc.Elements() // evals XPath each top-level element
+            let elems = doc.Elements() // evals XPath for each top-level element
             seq { for elem in elems do
                     yield! HtmlNodeXPath.evaluate parts elem }
         | Choice2Of2 error -> failwith error

@@ -1,6 +1,5 @@
 ﻿namespace YouTudes
 
-open System
 open System.Text.RegularExpressions
 open FSharp.Data
 open Utility
@@ -10,10 +9,7 @@ module YouTubeComments =
     /// Gets a Match's Group value if it succeeded, otherwise None
     let getRegexGroupValue (regex: Regex) (group: string) input =
         match regex.Match input with
-        | m when m.Success ->
-            let value = m.Groups.[group].Value
-            if String.IsNullOrWhiteSpace value then None
-            else Some value
+        | m when m.Success -> Some m.Groups.[group].Value
         | _ -> None
 
     let videoIdRegex = Regex(@"/watch\?v=(?<Id>[^&]+)", RegexOptions.Compiled)
@@ -40,41 +36,34 @@ module YouTubeComments =
         // get links to videos from search results
         let searchDoc = HtmlDocument.Parse searchHtml
         let videoUrls =
-            searchDoc.Select("//*[@class=yt-lockup-title]/a[@href]")
+            searchDoc.Select("//*[@class='yt-lockup-title']/a[@href]")
             |> Seq.map (fun a -> host + a.AttributeValue("href"))
             |> Seq.where (fun url -> url.Contains("/watch?"))
             |> Seq.distinct
 
-        // requests comments JSON
-        let getCommentJson videoUrl jsonUrl =
+        let requestComments videoUrl jsonUrl =
             let body = FormValues [("session_token", sessionToken); ("client_url", videoUrl)]
-            let headers = [("Referer", videoUrl); ("Origin", host)
-                           ("Content-Type", "application/x-www-form-urlencoded"); ("DNT", "1")]
+            let headers = [("Referer", videoUrl); ("Origin", host)]
             printfn "Requesting comments for %s..." jsonUrl
             Http.RequestString(jsonUrl, httpMethod = "POST", body = body, headers = headers, cookieContainer = cookies)
         
-        let getVideoCommentJson videoUrl =
+        let getComments videoUrl =
             let getCommentUrl videoId = sprintf "%s/watch_fragments_ajax?v=%s&tr=time&distiller=1&frags=comments&spf=load" host videoId
             match getVideoId videoUrl with
-            | Some id -> getCommentUrl id |> getCommentJson videoUrl
+            | Some id ->
+                let json = getCommentUrl id |> requestComments videoUrl |> JsonValue.Parse
+                maybe {
+                    let! body = json.TryGetProperty("body")
+                    let! html = body.TryGetProperty("watch-discussion")
+                    return html
+                }
             | None -> failwithf "Failed to parse video ID from video URL %s" videoUrl
 
-        // request and parse the JSON comments
-        let commentBodies =
-            videoUrls
-            |> Seq.map (getVideoCommentJson >> JsonValue.Parse)
-            |> Seq.choose
-                (fun j ->
-                    maybe {
-                        let! body = j.TryGetProperty("body")
-                        let! html = body.TryGetProperty("watch-discussion")
-                        return html
-                    })
-        
-        // parses the embedded HTML from a JSON comment result, returning the comment text
-        let getCommentText (body: JsonValue) =
+        // parses the embedded HTML from a JSON comment result, returns the comment text
+        let parseComments (body: JsonValue) =
             let commentHtml = HtmlDocument.Parse(body.AsString())
-            commentHtml.Select("//*[@class=comment-text-content]")
-            |> Seq.map HtmlNodeExtensions.InnerText
+            commentHtml.Select("//*[@class='comment-text-content']")
+            |> Seq.map HtmlNode.innerText
 
-        commentBodies |> Seq.map getCommentText |> Seq.collect id
+        // request and parse the JSON comments
+        videoUrls |> Seq.choose getComments |> Seq.collect parseComments

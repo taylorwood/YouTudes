@@ -5,12 +5,12 @@ module Utility =
     // http://fsharpforfunandprofit.com/posts/computation-expressions-intro/
     type MaybeBuilder() =
 
-        member this.Bind(x, f) = 
+        member __.Bind(x, f) = 
             match x with
             | None -> None
             | Some a -> f a
 
-        member this.Return(x) = 
+        member __.Return(x) = 
             Some x
    
     let maybe = new MaybeBuilder()
